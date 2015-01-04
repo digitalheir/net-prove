@@ -27,6 +27,7 @@ data ProofStructureInd f = Empty | S (Link.Link) (ProofStructureInd f) deriving 
 -- Constructor for a proof structure using lists:
 data ProofStructure f = ProofStructure {formulas :: FormulaMap f, links :: [Link.Link], acc :: Integer} deriving (Show, Eq)
 
+empty :: ProofStructure f
 empty = ProofStructure Map.empty [] 0
 
 addFormula :: (Eq f, Show f) => (Link.FormulaIdentifier, f) -> ProofStructure f -> ProofStructure f
@@ -41,7 +42,7 @@ addFormula (id, formula) (ProofStructure formMap ls i) =
     maybeVal = (id `Map.lookup` formMap)
     newMap = Map.insert id formula formMap
 
-
+fromFormulas :: [f] -> ProofStructure f
 fromFormulas formulas = ProofStructure formulaMap [] i
   where (formulaMap, i) = createFormulaMap formulas Map.empty 0
         createFormulaMap [] map i = (map, i)
@@ -62,6 +63,7 @@ addLink l (ProofStructure f ls acc) =
 containsFormula (ProofStructure functions ls acc) id = id `Map.member` functions
 
 -- M&M 2012, p7: "Formulas which are not the conclusion of any link are called the hypotheses of the proof structure."
+-- Complexity: O(n), for n is the number of formulas in this proof structure
 hypotheses s = getProofHypotheses (Map.keys (formulas s))
   where
    getProofHypotheses = foldl (addIfNotConclusion (links s)) []
@@ -73,6 +75,7 @@ hypotheses s = getProofHypotheses (Map.keys (formulas s))
 
 
 -- M&M 2012, p7: "Formulas which are not the premise of any link are called the conclusions of the proof structure."
+-- Complexity: O(n), for n is the number of formulas in this proof structure
 conclusions s = getProofConclusions (Map.keys (formulas s))
   where
    getProofConclusions = foldl (addIfNotPremise (links s)) []
