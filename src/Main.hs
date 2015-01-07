@@ -33,6 +33,6 @@ unfoldHypothesisInStructure s f = finalStructure
     (s'', conclusionNodes) = addFormulas s' conclusions
     mainFormula = if ix1 == 0 then premiseNodes !! ix2 else conclusionNodes !! ix2
     link = Link.constructLink linkType premiseNodes conclusionNodes mainFormula
-    finalStructure = if linkType == Link.Nil
+    finalStructure = if linkType == Link.NoLink
                      then addNode s mainFormula -- Our new structure is just the old structured with the atomic formula added on
                      else addLink s'' link         -- Our new structure is the old structure plus some new formulas and a new link

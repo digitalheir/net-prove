@@ -25,14 +25,24 @@ type FormulaMap = Map.Map NodeIdentifier
 
 -- Inductive constructor for a proof structure:
 -- TODO experiment if this works better than the set approach
-data ProofStructureInd f = Empty | S (Link.Link f) (ProofStructureInd f) deriving (Show)
+data ProofStructureInd f = Empty | S (Link.Link f) (ProofStructureInd f)
 
 -- Constructor for a proof structure using lists:
 data ProofStructure f = ProofStructure {
                                          formulas :: FormulaMap (Node f), -- TODO we can use a vector for this, so we can add/query indices in O(1) instead of O(log n)
                                          links :: [Link.Link f],
                                          count :: Int -- Think of this number as 'next node index / next node slot', or as a counter of how many nodes we have added in total (including those without references in the formula map)
-                                       } deriving (Show, Eq)
+                                       } deriving (Eq)
+
+instance (Show f)=>Show (ProofStructure f) where
+  show s = showFormulas (formulas s)++
+           "\n\n"++
+           showLinks (links s)
+           where
+             showFormulas formulas = show formulas
+             showLinks [] = ""
+             showLinks (l:[]) = (show l)
+             showLinks (l:ls) = (show l)++"\n\n"++(showLinks ls)
 
 emptyProofStructure :: ProofStructure f
 emptyProofStructure = ProofStructure Map.empty [] 0

@@ -27,23 +27,44 @@ import Logic.Node
 --   • c is the list of conclusions of the link,
 --   • m, the main vertex/formula of the link, is either a member of p, a member
 --     of c or the constant “nil”
-
--- TODO Should two links be equal if they have the same arguments / conclusions, but in a different order (e.g., are premises and conclusions Sets)? I think so.
-data LinkType = Tensor | CoTensor | Nil deriving (Show, Eq)
+--
+-- NOTE: We could think of sets instead of lists for our premises and conclusions
+data LinkType = Tensor | CoTensor | NoLink deriving (Show, Eq)
+data LinkDirection = LeftLink | RightLink | DirectionLess deriving (Show, Eq)
 data Link a = Link {
-                       linkType :: LinkType,
-                       premises :: [Node a],
-                       conclusions :: [Node a],
-                       mainFormula :: Node a
-                     }
-            deriving (Show, Eq)
+                     linkType :: LinkType,
+                     premises :: [Node a],
+                     conclusions :: [Node a],
+                     mainFormula :: Node a
+                   }
+            deriving (Eq)
 
--- TODO mainFormula may also be nil, but we should have a 'nullable' type f then, I don't know if there's a typeclass for that
+instance (Show a) => Show (Link a) where
+    show l =
+      (show (premises l)) ++
+      "\n" ++
+      "      "++
+      (showLinkType (linkType l))++
+      "\n" ++
+      (show (conclusions l))
+      where
+        showLinkType lt = if lt == Tensor then "O" else if lt == CoTensor then "*" else "-"
+
+
 constructLink :: (Eq a) => LinkType -> [Node a] -> [Node a] -> (Node a) -> (Link a)
 constructLink linkType premises conclusions mainFormula =
-  if mainFormula `elem` premises || mainFormula `elem` conclusions
-  then Link linkType premises conclusions mainFormula
-  else error "mainFormula must be a member of p, or c, or the node equivalent of nil"
+  if (ld == LeftLink) || (ld == RightLink) || (linkDirection link == DirectionLess) -- trivial, but this performs an error check
+  then link
+  else error "Main formula must be an element of premises or an element of conclusions or nil"
+  where link = Link linkType premises conclusions mainFormula
+        ld = linkDirection link
+
+-- Returns whether formula has a main link assigned
+hasMainFormula :: (Eq a) => (Link a) -> Bool
+hasMainFormula link =
+  if (mainFormula link) == NilNode
+  then False
+  else True
 
 -- Moortgat & Moot 2012, p5: "In case m[ainFormula] is a member of p[remises] we speak of a left link
 -- (corresponding to the left rules of the sequent calculus, where the main formula of the link occurs in the antecedent)"
@@ -53,6 +74,19 @@ isLeftLink link = (mainFormula link) `elem` (premises link)
 -- "...and in case m[ainFormula] is a member of c[onclusions] we speak of a right link."
 isRightLink :: (Eq a) => (Link a) -> Bool
 isRightLink link = (mainFormula link) `elem` (conclusions link)
+
+linkDirection :: (Eq a) => (Link a) -> LinkDirection
+linkDirection link =
+  if not (hasMainFormula link)
+  then DirectionLess
+  else
+    if isLeftLink link
+    then LeftLink
+    else
+      if isRightLink link
+      then RightLink
+      else error "Link is neither a left link nor a right link: mainFormula must be a member of the premises, or the conclusions, or the node equivalent of nil"
+
 
 -- Moortgat & Moot 2012, p5:
 -- "when we need to refer to the connections between the central node and the vertices, we will call them its tentacles"

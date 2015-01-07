@@ -5,4 +5,7 @@ type NodeIdentifier = Int
 data Node a = Node {
                      nodeData :: a,
                      nodeId :: NodeIdentifier
-                   } deriving (Eq, Show)
+                   } | NilNode deriving (Eq)
+
+instance (Show a) => Show (Node a) where
+  show n = (show (nodeData n))++"^^"++(show (nodeId n))
