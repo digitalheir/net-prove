@@ -2,7 +2,6 @@ module Logic.Link
 (
 LinkType(..),
 Link,--(..), -- Do not expose type constructor for link; use constructor function
-FormulaIdentifier(..),
 constructLink,
 isLeftLink,
 isRightLink,
@@ -16,9 +15,7 @@ getAllConclusions,
 isConclusionOfAnyLink,
 isPremiseOfAnyLink
 ) where
-
--- A map that identifies formulae by an integer. We need this to distinguish between various occurrences of the same formula in a proof structure
-type FormulaIdentifier = Integer
+import Logic.Node
 
 -- Links: Tensor or cotensor links that connect a number of formulae.
 --
@@ -32,17 +29,17 @@ type FormulaIdentifier = Integer
 --     of c or the constant “nil”
 
 -- TODO Should two links be equal if they have the same arguments / conclusions, but in a different order (e.g., are premises and conclusions Sets)? I think so.
-data LinkType = Tensor | CoTensor deriving (Show, Eq)
-data Link = Link {
+data LinkType = Tensor | CoTensor | Nil deriving (Show, Eq)
+data Link a = Link {
                        linkType :: LinkType,
-                       premises :: [FormulaIdentifier],
-                       conclusions :: [FormulaIdentifier],
-                       mainFormula :: FormulaIdentifier
+                       premises :: [Node a],
+                       conclusions :: [Node a],
+                       mainFormula :: Node a
                      }
             deriving (Show, Eq)
 
 -- TODO mainFormula may also be nil, but we should have a 'nullable' type f then, I don't know if there's a typeclass for that
-constructLink :: LinkType -> [FormulaIdentifier] -> [FormulaIdentifier] -> FormulaIdentifier -> Link
+constructLink :: (Eq a) => LinkType -> [Node a] -> [Node a] -> (Node a) -> (Link a)
 constructLink linkType premises conclusions mainFormula =
   if mainFormula `elem` premises || mainFormula `elem` conclusions
   then Link linkType premises conclusions mainFormula
@@ -50,35 +47,35 @@ constructLink linkType premises conclusions mainFormula =
 
 -- Moortgat & Moot 2012, p5: "In case m[ainFormula] is a member of p[remises] we speak of a left link
 -- (corresponding to the left rules of the sequent calculus, where the main formula of the link occurs in the antecedent)"
-isLeftLink :: Link -> Bool
-isLeftLink (Link _ premises _ mainFormula) = mainFormula `elem` premises
+isLeftLink :: (Eq a) => (Link a) -> Bool
+isLeftLink link = (mainFormula link) `elem` (premises link)
 
 -- "...and in case m[ainFormula] is a member of c[onclusions] we speak of a right link."
-isRightLink :: Link -> Bool
-isRightLink (Link _ _ conclusions mainFormula) = mainFormula `elem` conclusions
+isRightLink :: (Eq a) => (Link a) -> Bool
+isRightLink link = (mainFormula link) `elem` (conclusions link)
 
 -- Moortgat & Moot 2012, p5:
 -- "when we need to refer to the connections between the central node and the vertices, we will call them its tentacles"
-numberOfTentacles :: Link -> Int
-numberOfTentacles (Link _ premises conclusions _) = length premises + length conclusions
+numberOfTentacles :: (Link a) -> Int
+numberOfTentacles link = length (premises link) + length (conclusions link)
 
 --Some utility functions:
-getAllPremises :: [Link] -> [FormulaIdentifier]
+getAllPremises :: [Link a] -> [Node a]
 getAllPremises [] =  []
 getAllPremises (link:links) =  premises link ++ getAllPremises links
 
-getAllConclusions :: [Link] -> [FormulaIdentifier]
+getAllConclusions :: [Link a] -> [Node a]
 getAllConclusions [] =  []
 getAllConclusions (link:links) =  conclusions link ++ getAllConclusions links
 
-isConclusionOfAnyLink :: FormulaIdentifier -> [Link] -> Bool
+isConclusionOfAnyLink :: (Eq a) => (Node a) -> [Link a] -> Bool
 isConclusionOfAnyLink formula [] = False
 isConclusionOfAnyLink formula (l:links) =
   if formula `elem` (conclusions l)
   then True
   else isConclusionOfAnyLink formula links
 
-isPremiseOfAnyLink :: FormulaIdentifier -> [Link] -> Bool
+isPremiseOfAnyLink :: (Eq a) => (Node a) -> [Link a] -> Bool
 isPremiseOfAnyLink formula [] = False
 isPremiseOfAnyLink formula (l:links) =
     if formula `elem` (premises l)
