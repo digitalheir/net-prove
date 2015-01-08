@@ -13,4 +13,4 @@ cabal.config
 # Project files
 .idea/
 .project-settings/
-.project-settings
+.project-settings.yml
