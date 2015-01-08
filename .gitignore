@@ -10,5 +10,6 @@ cabal-dev
 cabal.sandbox.config
 cabal.config
 
-# JetBrains project files
+# Project files
 .idea/
+.project-settings
