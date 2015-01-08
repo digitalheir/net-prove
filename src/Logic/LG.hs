@@ -34,7 +34,7 @@ instance (Eq a) => Formulae (Formula a) where
   unfoldHypothesis (a :+: b) = (Link.Tensor,   [a :+: b],    [a, b], (0,0)) -- L⊕
   unfoldHypothesis (b :-\ a) = (Link.CoTensor, [b, b :\\ a], [a],    (0,1)) -- L⃠
   -- We can't unfold atomic formulae
-  unfoldHypothesis (Atom a) = (Link.NoLink,       [Atom a], [], (0,0))
+  unfoldHypothesis (Atom a) = (Link.NoLink,    [Atom a],     [],     (0,0))
   ---
   --- Conclusion
 --  unfoldConclusion :: (Eq a) => (Link.LinkType, Formula a, Formula a, Formula a)
@@ -47,7 +47,7 @@ instance (Eq a) => Formulae (Formula a) where
   unfoldConclusion (a :+: b) = (Link.CoTensor, [a, b], [a :+: b], (1,0)) -- R⊕
   unfoldConclusion (b :-\ a) = (Link.Tensor,   [a], [b, b :-\ a], (1,1)) -- R⃠
   -- We can't unfold atomic formulae
-  unfoldConclusion (Atom a) = (Link.NoLink,       [], [Atom a], (1,0))
+  unfoldConclusion (Atom a) = (Link.NoLink,    [],  [Atom a],     (1,0))
 
 --- Unfold examples
 --unfoldExamples = [

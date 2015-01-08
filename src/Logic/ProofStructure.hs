@@ -23,13 +23,12 @@ type FormulaMap = Map.Map NodeIdentifier
 --   • each formula is at most once the premise of a link,
 --   • each formula is at most once the conclusion of a link
 
--- Inductive constructor for a proof structure:
--- TODO experiment if this works better than the set approach
-data ProofStructureInd f = Empty | S (Link.Link f) (ProofStructureInd f)
-
 -- Constructor for a proof structure using lists:
+-- We define our 'set of formula occurrence' a bit more informative than just being a (multi-)set.
+-- We use a map to store nodes, using integer indices as node identifiers. We use this to distinguish between various occurrences of the same formula in a proof structure
+-- We'll only append to this map, and may think of 'count' as 'next node index / next node slot', or alternatively as a counter of how many nodes we have added in total (including those without references in the formula map)
 data ProofStructure f = ProofStructure {
-                                         formulas :: FormulaMap (Node f), -- TODO we can use a vector for this, so we can add/query indices in O(1) instead of O(log n)
+                                         formulas :: FormulaMap (Node f),
                                          links :: [Link.Link f],
                                          count :: Int -- Think of this number as 'next node index / next node slot', or as a counter of how many nodes we have added in total (including those without references in the formula map)
                                        } deriving (Eq)
@@ -61,7 +60,7 @@ addFormulas' s (f:fs) acc = addFormulas' newStructure fs ((newNode):acc)
 
 -- Adds given formula to given proof structure, creating a new node for the given formula
 -- Returns: A pair of which the first element is the resulting proof structure, and the second element is the new node that was created
--- Complexity: O(log n) --TODO if we use a vector instead of map, can be O(1)
+-- Complexity: O(log n)
 addFormula :: (Eq f) => ProofStructure f ->f ->  (ProofStructure f, Node f)
 addFormula structure f =
   ((ProofStructure newMap (links structure) (nodeId+1)), node)
@@ -78,7 +77,7 @@ createNode s f = Node f (count s)
 
 -- Adds given node to given proof structure.
 -- WARNING: The node id *MUST* match the current count of the given proof structure, or this function will return an error
--- Complexity: O(log n) -- TODO use vector instead of map to make complexity O(1)
+-- Complexity: O(log n)
 addNode :: ProofStructure f -> Node f -> ProofStructure f
 addNode structure node =
     if nodeId node == index
