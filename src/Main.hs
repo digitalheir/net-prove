@@ -11,36 +11,31 @@ import qualified Data.Map as Map
         --getLinkInfo s (b :<\>: a) = [b, b :<\>: a] :●: [a] -- L⃠
 
 
-insertNodes :: CompositionGraph -> [(Identifier, NodeInfo)] -> CompositionGraph
-insertNodes graph [] = graph
-insertNodes graph ((id,formula):ns) = insertNodes (Map.insert id formula graph) ns
-
-addFormula :: CompositionGraph -> NodeInfo -> (CompositionGraph, Identifier)
-addFormula g f = (Map.insert nextId f g,nextId)
-  where nextId = Map.size g
-
-addFormulas :: CompositionGraph -> [NodeInfo] -> (CompositionGraph, [Identifier])
-addFormulas g f = addFormulas' g f []
-  where addFormulas' :: CompositionGraph -> [NodeInfo] -> [Identifier] -> (CompositionGraph, [Identifier])
-        addFormulas' gr []     acc = (gr,reverse acc)
-        addFormulas' gr (f:fs) acc = addFormulas' g' fs (id:acc) where (g', id) = addFormula gr f
+insertNodes ::  [Occurrence NodeInfo] -> CompositionGraph -> CompositionGraph
+insertNodes [] graph = graph
+insertNodes ((id :@ formula):ns) graph = insertNodes ns (Map.insert id formula graph)
 
 main = do
-    (putStrLn . show) figure15
+    (putStrLn . show) figure18
 
 figure15 = g1
   where f = P( N ( P (AtomP "a"):/:P (AtomP "b")):<×>: (P (AtomP "b")))
-        g0 = unfoldHypothesis f 0
-        g1 = identifyNodes g0
+        (id, nodes, c) = unfoldHypothesis f 0
+        g1 = identifyNodes (insertNodes nodes Map.empty)
 
-figure18 = subUnfolded
-  where sub = P ((N ((P (AtomP "np")):/:(N (AtomN "n")))):<×>: (P (AtomP "n")))
+figure18 = g1
+  where sub = P ((N ((P (AtomP "np")):/:(P (AtomP "n")))):<×>: (P (AtomP "n")))
         tv  = N (N ((P (AtomP "np")):\:(P (AtomP "s"))):/:(P (AtomP "np")))
         det = N ((P (AtomP "np")):/:(P (AtomP "n")))
         noun = P (AtomP "n")
         goal = N (AtomN "s")
-        subUnfolded = unfoldHypothesis sub 0
-
+        (sbId, nodes1, count1) = unfoldHypothesis sub 0
+        (tvId, nodes2, count2) = unfoldHypothesis tv count1
+        (dtId, nodes3, count3) = unfoldHypothesis det count2
+        (nnId, nodes4, count4) = unfoldHypothesis noun count3
+        (glId, nodes5, count5) = unfoldHypothesis goal count4
+        g0 = (insertNodes nodes1 . insertNodes nodes2 . insertNodes nodes3 . insertNodes nodes4 . insertNodes nodes5) Map.empty
+        g1 = map (\(id1:@_,id2:@_) -> (id1,id2)) (identifyNodes g0)
 
 exampleGraph = g2
   where
@@ -49,6 +44,6 @@ exampleGraph = g2
     idLink = (Active 0) :|: (Active 1)
     nodeInfo :: NodeInfo
     nodeInfo = Node f (Va (Variable "0")) (Just idLink) Nothing
-    g1 = insertNodes g0 [(0, nodeInfo)]
-    g2 = unfoldHypothesis f 0
+    g1 = insertNodes [0 :@ nodeInfo] g0
+    g2 = unfoldHypothesis f 0 
     
