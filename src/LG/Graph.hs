@@ -7,8 +7,6 @@ type Name = String
 type Identifier = Int  -- to be assigned using Data.IORef
 
 data Occurrence a = Identifier :@ a deriving (Eq, Show)
-instance (Eq a) => Ord (Occurrence a) where
-    compare (a:@_) (b:@_) = compare a b
 
 abstract :: Occurrence a -> a
 abstract (_ :@ x) = x
