@@ -37,7 +37,7 @@ getUnfoldInfoH f@(N (b:/:a)) mainId newCount = (term, operatorLink, aNodes, bNod
           operatorLink = Just link
           (aId, aNodes, aCount) = unfoldConclusion' a aTerm operatorLink newCount
           (bId, bNodes, bCount) = unfoldHypothesis' b bTerm operatorLink aCount
--- L⊗
+-- L
 getUnfoldInfoH f@(P (a :<×>: b)) mainId idCount = (mainTerm, operatorLink, aNodes, bNodes, bCount)
   where mainTerm     = (Va (Variable (show mainId)))
         aTerm = (Va (Variable (show aId)))

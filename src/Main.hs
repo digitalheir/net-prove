@@ -4,6 +4,7 @@ import LG.Unfold
 import LG.Identify
 import Data.IORef
 import qualified Data.Map as Map
+import qualified Data.Set as Set
    --     getLinkInfo s (a :<×>: b) = [a :<×>: b]    :●: [a, b] -- L⊗
      --   getLinkInfo s (a  :\:  b) = [a, a :\: b]   :○: [b]    -- L\
       --  getLinkInfo s (a :</>: b) = [a :</>: b, b] :●: [a] -- L⊘
@@ -23,7 +24,7 @@ figure15 = g1
         (id, nodes, c) = unfoldHypothesis f 0
         g1 = identifyNodes (insertNodes nodes Map.empty)
 
-figure18 = g1
+figure18 = g1s
   where sub = P ((N ((P (AtomP "np")):/:(P (AtomP "n")))):<×>: (P (AtomP "n")))
         tv  = N (N ((P (AtomP "np")):\:(P (AtomP "s"))):/:(P (AtomP "np")))
         det = N ((P (AtomP "np")):/:(P (AtomP "n")))
@@ -35,7 +36,7 @@ figure18 = g1
         (nnId, nodes4, count4) = unfoldHypothesis noun count3
         (glId, nodes5, count5) = unfoldHypothesis goal count4
         g0 = (insertNodes nodes1 . insertNodes nodes2 . insertNodes nodes3 . insertNodes nodes4 . insertNodes nodes5) Map.empty
-        g1 = map (\(id1:@_,id2:@_) -> (id1,id2)) (identifyNodes g0)
+        g1s = identifyNodes g0
 
 exampleGraph = g2
   where
