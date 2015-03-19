@@ -5,6 +5,7 @@ import LG.Graph
 import LG.Base
 import LG.Term
 import qualified Data.Map as Map
+import qualified Data.Either as Either
 import qualified Data.Set as Set
 
 -- A (simple) identification contains two references to a node: one will be the
@@ -70,9 +71,9 @@ identifyNodes' graph (identification:xs) = identifyNodes' (graphAfterIdentificat
 -- Complexity: O(log n)
 graphAfterIdentification :: Identification -> CompositionGraph -> CompositionGraph
 graphAfterIdentification (id1,id2) g0 = g3
-  where  newLink = Just (linkMe1:|:linkMe2)
-         Just (Node _ _ Nothing (Just (linkMe1:|:_))) = Map.lookup id1 g0
-         Just (Node _ _ (Just (_:|:linkMe2)) Nothing) = Map.lookup id2 g1
+  where  newLink = Right (linkMe1:|:linkMe2)
+         Just (Node _ _ (Left True) (Right (linkMe1:|:_))) = Map.lookup id1 g0
+         Just (Node _ _ (Right (_:|:linkMe2)) (Left True)) = Map.lookup id2 g1
          g1 = setIsPremiseOf    newLink (referee linkMe1) g0
          g3 = ((Map.delete id1).(Map.delete id2)) g2
          g2 = setIsConclusionOf newLink (referee linkMe2) g1
@@ -176,8 +177,10 @@ getPossIdsForLeafWith (c1, (leaf@(Leaf (id1:@(Node formula1 _ downlink1 uplink1)
         [((c1, leaf), (c2, otherLeaf)) | otherLeaf@(Leaf (id2:@(Node formula2 _ downlink2 uplink2))) <- otherLeafs,
                             leaf/=otherLeaf,                                             -- We can't identify exactly the same node
                             sameName formula1 formula2,                                  -- Select pairs with the same formula (polarity doesn't matter)
-                            downlink1 == Nothing && uplink2 == Nothing,                  -- Select pairs that are not saturated
-                            if uplink1/=Nothing then not(uplink1 == downlink2) else True -- Don't match up atoms that are already connected with an axiom link
+                            downlink1 == Left True && uplink2 == Left True,              -- Select pairs that are not saturated. Note that we will always match downlink 1 and uplink 2 in this phase, never the other way around to avoid duplicates!
+                            case uplink1                                                 -- Don't match up atoms that are already connected with an axiom link
+                              of Right _ -> not(uplink1 == downlink2)                       -- If the uplink of node 1 is a link, then it should not be the downlink of node 2
+                                 Left x -> True                                             -- We can proceed
         ]
 
 
@@ -192,14 +195,14 @@ getPossIdsForLeafWith (c1, (leaf@(Leaf (id1:@(Node formula1 _ downlink1 uplink1)
 -- Replaces premise of node in given map for given Identifier with given link. (Note: this does not check whether the given node id is *actually* a premise of the given link)
 --
 -- Complexity: O(log n)
-setIsPremiseOf :: Maybe Link -> Identifier -> CompositionGraph -> CompositionGraph
+setIsPremiseOf :: Either.Either Bool Link -> Identifier -> CompositionGraph -> CompositionGraph
 setIsPremiseOf premOf id g = Map.insert id (Node f t premOf concOf) g
   where Just (Node f t _ concOf) = if Map.lookup id g == Nothing then error ((show id)++" not found") else Map.lookup id g
 
 -- Replaces conclusion of node in given map for given Identifier with given link. (Note: this does not check whether the given node id is *actually* a conclusion of the given link)
 --
 -- Complexity: O(log n)
-setIsConclusionOf :: Maybe Link -> Identifier -> CompositionGraph -> CompositionGraph
+setIsConclusionOf :: Either.Either Bool Link -> Identifier -> CompositionGraph -> CompositionGraph
 setIsConclusionOf concOf id g = Map.insert id (Node f t premOf concOf) g
   where Just (Node f t premOf _) = Map.lookup id g
 
@@ -235,11 +238,11 @@ sameName a b = (aName == bName) && (aName /= Nothing)
 -- See M&M, p. 23: "all axiom links connecting terms of the same type (value or context) are collapsed."
 collapseAxiomLinks :: CompositionGraph -> CompositionGraph
 collapseAxiomLinks g = collapseConclusionLinks (((map (\(Node _ _ _ l)->l)) . (filter isAxiomConclusion) . Map.elems) g) g
-  where isAxiomConclusion (Node _ _ _ (Just (_ :|: _))) = True
+  where isAxiomConclusion (Node _ _ _ (Right (_ :|: _))) = True
         isAxiomConclusion _ = False
-        collapseConclusionLinks :: [Maybe Link] -> CompositionGraph -> CompositionGraph
+        collapseConclusionLinks :: [Either Bool Link] -> CompositionGraph -> CompositionGraph
         collapseConclusionLinks [] g = g
-        collapseConclusionLinks (Just (Active id1 :|: Active id2):xs) g0 = if sameTermTypes t1 t2 then g1 else g
+        collapseConclusionLinks (Right (Active id1 :|: Active id2):xs) g0 = if sameTermTypes t1 t2 then g1 else g
           where Just (Node f1 t1 premOf1 concOf1) = Map.lookup id1 g0
                 Just (Node f2 t2 premOf2 concOf2) = Map.lookup id2 g0
                 newNode = (Node f1 t1 premOf2 concOf1)
@@ -248,14 +251,14 @@ collapseAxiomLinks g = collapseConclusionLinks (((map (\(Node _ _ _ l)->l)) . (f
                 sameTermTypes _ _ = False
                 g1 :: CompositionGraph
                 g1 = ((replaceIdInConclusion id2 id1 premOf2) . (Map.insert id1 newNode) . (Map.delete id2) . (Map.delete id1)) g0
-                replaceIdInConclusion :: Identifier -> Identifier -> Maybe Link -> CompositionGraph -> CompositionGraph
-                replaceIdInConclusion _ _ Nothing g = g
-                replaceIdInConclusion replaceMe withMe (Just l) g = replaceIdInConclusion' replaceMe withMe (map referee (succedents l)) g
+                replaceIdInConclusion :: Identifier -> Identifier -> NodeLink -> CompositionGraph -> CompositionGraph
+                replaceIdInConclusion _ _ (Left True) g = g
+                replaceIdInConclusion replaceMe withMe (Right l) g = replaceIdInConclusion' replaceMe withMe (map referee (succedents l)) g
                 replaceIdInConclusion' replaceMe withMe [] g = g
                 replaceIdInConclusion' replaceMe withMe (id:xs) g0 = g1
-                  where Just (Node f t premOf (Just link)) = Map.lookup id g0
+                  where Just (Node f t premOf (Right link)) = Map.lookup id g0
                         g1 = Map.insert id newNode g0
-                        newNode = (Node f t premOf (Just (replaceInLink replaceMe withMe link)))
+                        newNode = (Node f t premOf (Right (replaceInLink replaceMe withMe link)))
                         replaceInLink :: Identifier -> Identifier -> Link -> Link
                         replaceInLink replaceMe withMe (prems :○: concs) = (replaceInList replaceMe withMe prems) :○: (replaceInList replaceMe withMe concs)
                         replaceInLink replaceMe withMe (prems :●: concs) = (replaceInList replaceMe withMe prems) :○: (replaceInList replaceMe withMe concs)

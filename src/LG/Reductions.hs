@@ -139,7 +139,7 @@ partialUnify (l1:ls1) g = firsts l1 >>= rest ls1 where
   firsts l      = mapMaybe (unify' l) (links g)
   rest []     u = [u]
   rest (l:ls) u = let nodes    = map snd u
-                      all' ref = mapMaybe (ref . (g Map.!))
+                      all' ref = mapMaybe (toMaybeLink . ref . (g Map.!))
                       options  = all' premiseOf nodes ++ all' succedentOf nodes
                   in  mapMaybe (\l' -> unify l l' u) options >>= rest ls
 
@@ -154,9 +154,12 @@ reunite :: [Identifier] -> [Identifier] -> CompositionGraph -> CompositionGraph
 reunite []  []  g = g
 reunite [h] [c] g = Map.delete h . Map.adjust (l⤴) c
                   . adjust (l⤵) upstream . adjust (l⤴) neighbour $ g
-  where l         = subst c h $ uplink h g
-        upstream  = maybe [] prem l
-        neighbour = maybe [] conc l
+  where l :: NodeLink
+        l         = subst c h $ uplink2 h g
+        upstream  = case l of {Right x -> prem x; Left _ -> []}
+        neighbour = case l of {Right x -> prem x; Left _ -> []}
+        --upstream  = maybe [] prem l
+        --neighbour = maybe [] conc l
 reunite _ _ _     = error "Cannot reconnect multiple disconnected hypotheses\
       \and conclusions. Make sure that the proof transformations are sensible."
 

@@ -2,11 +2,13 @@ module LG.Graph where
 
 import Data.List
 import Data.Maybe
+import qualified Data.Either as Either
 import qualified Data.Map as Map
 
 import LG.Base
 import LG.Term
 
+pairToOccurrence (a, b) = a :@ b
 
 --------------------------------------------------------------------------------
 -- Links & tentacles
@@ -88,20 +90,41 @@ transpose link = listToMaybe (pMain ++ sMain) :-: (pActive ++ sActive)
 
 --------------------------------------------------------------------------------
 -- Nodes
+-- Left: (True for open end, False for closed end); Right: (Link)
+type NodeLink = Either Bool Link
 
 data NodeInfo = Node { formula     :: Formula
                      , term        :: NodeTerm
-                     , premiseOf   :: Maybe Link
-                     , succedentOf :: Maybe Link
+                     , premiseOf   :: NodeLink
+                     , succedentOf :: NodeLink
                      }
               deriving (Eq, Show, Ord)
 
 
 -- Change the link above or below a node
-(⤴) , (⤵) :: Maybe Link -> NodeInfo -> NodeInfo
+(⤴) , (⤵) :: NodeLink -> NodeInfo -> NodeInfo
 new ⤴ Node f t p _ = Node f t p new
 new ⤵ Node f t _ s = Node f t new s
 
+isTerminal = Either.isLeft
+
+isOpenEnd :: NodeLink -> Bool
+isOpenEnd x = either (\bool -> bool) (\_->False) x
+
+isClosedEnd = not . isOpenEnd
+
+isOpenLeafNode :: NodeInfo -> Bool --TODO
+isOpenLeafNode (Node _ _ (Left True) _) = True
+isOpenLeafNode (Node _ _ _ (Left True)) = True
+isOpenLeafNode _ = False
+
+toMaybeLink :: NodeLink -> Maybe Link
+toMaybeLink (Left x)  = Nothing
+toMaybeLink (Right x) = Just x
+
+toEitherLink :: Maybe Link -> NodeLink
+toEitherLink (Just x) = Right x
+toEitherLink (Nothing) = Left True -- Watch out! This assumes that terminal nodes are open-ended
 
 --------------------------------------------------------------------------------
 -- Graph querying
@@ -109,10 +132,10 @@ new ⤵ Node f t _ s = Node f t new s
 type CompositionGraph = Map.Map Identifier NodeInfo
 
 hypotheses :: CompositionGraph -> [Identifier]
-hypotheses = Map.keys . Map.filter (isNothing . succedentOf)
+hypotheses = Map.keys . Map.filter (isTerminal . succedentOf)
 
 conclusions :: CompositionGraph -> [Identifier]
-conclusions = Map.keys . Map.filter (isNothing . premiseOf)
+conclusions = Map.keys . Map.filter (isTerminal . premiseOf)
 
 
 -- Get all links inside a graph by enumerating all links under each node that is
@@ -120,14 +143,18 @@ conclusions = Map.keys . Map.filter (isNothing . premiseOf)
 -- tentacle leading up!
 links :: CompositionGraph -> [Link]
 links = Map.elems . Map.mapMaybeWithKey spotByRepresentative where
-  first                    = fmap (head . prem) . premiseOf
-  spotByRepresentative k n = if first n == Just k then premiseOf n else Nothing
-
+  first                    = fmap (head . prem) . toMaybeLink . premiseOf
+  spotByRepresentative k n = if first n == Just k then toMaybeLink (premiseOf n) else Nothing
 
 -- Find out to what link some node is a premise (downlink) / succedent (uplink)
 downlink, uplink :: Identifier -> CompositionGraph -> Maybe Link
-downlink k g = premiseOf   $ g Map.! k
-uplink   k g = succedentOf $ g Map.! k
+downlink k g = toMaybeLink . premiseOf   $ g Map.! k
+uplink   k g = toMaybeLink . succedentOf $ g Map.! k
+
+-- Find out to what link some node is a premise (downlink) / succedent (uplink)
+downlink2, uplink2 :: Identifier -> CompositionGraph -> NodeLink
+downlink2 k g = premiseOf   $ g Map.! k
+uplink2   k g = succedentOf $ g Map.! k
 
 
 -- Naive (?) cycle detection
@@ -153,12 +180,6 @@ newtype LeafNode = Leaf (Occurrence NodeInfo) deriving (Eq, Ord)
 -- Complexity: O(n)
 leafNodes :: CompositionGraph -> [LeafNode]
 leafNodes g = map Leaf $ map pairToOccurrence (Map.toList (Map.filter isOpenLeafNode g))
-
-isOpenLeafNode (Node _ _ Nothing _) = True
-isOpenLeafNode (Node _ _ _ Nothing) = True
-isOpenLeafNode _ = False
-
-pairToOccurrence (a, b) = a :@ b
 
 --------------------------------------------------------------------------------
 -- Graph manipulation
@@ -186,8 +207,8 @@ adjust f = flip $ foldl' $ flip $ Map.adjust f
 -- referred to in some (hypothetical) link to either actually refer to such a
 -- link or to put Nothings in its place
 connect, disconnect :: [Link] -> CompositionGraph -> CompositionGraph
-connect          = install Just
-disconnect       = install (const Nothing)
+connect          = install Right
+disconnect       = install (const (Left True)) -- TODO correct? Before (Either Bool Link), 'Left True' was 'Nothing'. I would say: yes, disconnecting will always result in a graph that is open to new connections
 install presence = flip $ foldl' (\g l -> adjust (presence l ⤴) (conc l)
                                         $ adjust (presence l ⤵) (prem l) g)
 
